@@ -29,9 +29,13 @@ jobs:
       - name: Build React App
         run: CI=false npm run build
 
-      # 5. Static Code Analysis (ESLint example)
-      - name: Run ESLint
-        run: npm run lint || echo "No lint script found, skipping."
+      # 5. Static Code Analysis (SonarQube example)
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: ""
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       # 6. Security Scan (npm audit or Snyk)
       - name: Run npm audit
