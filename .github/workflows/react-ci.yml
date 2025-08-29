@@ -1,108 +1,65 @@
-name: React CI Pipeline
+name: CI Pipeline - React App
 
 on:
   push:
-    branches: [ "feature-Implement-CI-pipeline" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "feature-Implement-CI-pipeline" ]
+    branches: [ "main" ]
 
 jobs:
-  # 1. Code Checkout
-  checkout:
+  build:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ProductApp-UI   # 👈 important so npm finds package.json
+
     steps:
+      # 1. Code Checkout
       - name: Checkout Code
         uses: actions/checkout@v4
 
-  # 2. Setup Environment
-  setup:
-    runs-on: ubuntu-latest
-    needs: checkout
-    steps:
+      # 2. Setup Node.js Environment
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
+
+      # 3. Install Dependencies
       - name: Install Dependencies
         run: npm install
 
-  # 3. Build React App
-  build:
-    runs-on: ubuntu-latest
-    needs: setup
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      # 4. Build React App
       - name: Build React App
-        run: CI=false npm run build
+        run: npm run build
 
-  # 4. Static Code Analysis
-  static-analysis:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # 5. Static Code Analysis (ESLint)
+      - name: Run ESLint
+        run: npm run lint
 
-  # 5. Security Scan
-  security-scan:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate || echo "npm audit failed or not supported, skipping."
+      # 6. Security Scan (npm audit)
+      - name: Run Security Scan
+        run: npm audit --audit-level=high || true
 
-  # 6. Docker Build & Push
-  docker:
-    runs-on: ubuntu-latest
-    needs: [static-analysis, security-scan]
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      # 7. Login to DockerHub
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Set image tags
-        id: vars
+      # 8. Build & Tag Docker Images (latest + datetime)
+      - name: Build Docker Image
         run: |
-          DATETIME_TAG=$(date +'%Y%m%d%H%M%S')
-          SHA_TAG=${GITHUB_SHA::7}
-          IMAGE=${{ secrets.DOCKER_USERNAME }}/react-app
-          echo "datetime_tag=$DATETIME_TAG" >> $GITHUB_OUTPUT
-          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/react-app
+          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TIMESTAMP .
 
-      - name: Backup old latest
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+
+      # 9. Push Docker Images
+      - name: Push Docker Images
         run: |
-          IMAGE=${{ steps.vars.outputs.image }}
-          DATETIME_TAG=${{ steps.vars.outputs.datetime_tag }}
-          if docker pull $IMAGE:latest; then
-            docker tag $IMAGE:latest $IMAGE:$DATETIME_TAG
-            docker push $IMAGE:$DATETIME_TAG
-          fi
-
-      - name: Build and Push Docker Image
-        run: |
-          IMAGE=${{ steps.vars.outputs.image }}
-          SHA_TAG=${{ steps.vars.outputs.sha_tag }}
-          docker build -t $IMAGE:$SHA_TAG -t $IMAGE:latest .
-          docker push $IMAGE:$SHA_TAG
-          docker push $IMAGE:latest
-
-      - name: Scan Docker Image with Trivy
-        uses: aquasecurity/trivy-action@0.20.0
-        with:
-          image-ref: ${{ secrets.DOCKER_USERNAME }}/react-app:latest
+          docker push $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:$TIMESTAMP
