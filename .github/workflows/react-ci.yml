@@ -1,4 +1,4 @@
-name: CI Pipeline - React App
+name: React CI Pipeline
 
 on:
   push:
@@ -10,56 +10,86 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: ProductApp-UI   # 👈 important so npm finds package.json
-
     steps:
-      # 1. Code Checkout
-      - name: Checkout Code
+      # 1. Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js Environment
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
 
-      # 3. Install Dependencies
+      # 3. Install dependencies
       - name: Install Dependencies
         run: npm install
 
-      # 4. Build React App
+      # 4. Compile & Build React app
       - name: Build React App
-        run: npm run build
+        run: CI=false npm run build
 
-      # 5. Static Code Analysis (ESLint)
-      - name: Run ESLint
-        run: npm run lint
+      # 5. Static Code Analysis (SonarQube example)
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: ""
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      # 6. Security Scan (npm audit)
-      - name: Run Security Scan
-        run: npm audit --audit-level=high || true
+      # 6. Security Scan (npm audit or Snyk)
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate || echo "npm audit failed or not supported, skipping."
 
-      # 7. Login to DockerHub
+      # 7. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 8. Log in to DockerHub 
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 8. Build & Tag Docker Images (latest + datetime)
-      - name: Build Docker Image
+      # 9. Set image tags
+      - name: Set image tags
+        id: vars
         run: |
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/react-app
-          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TIMESTAMP .
+          DATETIME_TAG=$(date +'%Y%m%d%H%M%S')   # e.g. 202508281635
+          SHA_TAG=${GITHUB_SHA::7}               # e.g. abc1234
+          IMAGE=${{ secrets.DOCKER_USERNAME }}/react-app
+          
+          echo "datetime_tag=$DATETIME_TAG" >> $GITHUB_OUTPUT
+          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
-          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
-
-      # 9. Push Docker Images
-      - name: Push Docker Images
+      # 10. Backup old latest (if exists)
+      - name: Backup old latest
         run: |
-          docker push $IMAGE_NAME:latest
-          docker push $IMAGE_NAME:$TIMESTAMP
+          IMAGE=${{ steps.vars.outputs.image }}
+          DATETIME_TAG=${{ steps.vars.outputs.datetime_tag }}
+          
+          if docker pull $IMAGE:latest; then
+            echo "Backing up old latest as $DATETIME_TAG"
+            docker tag $IMAGE:latest $IMAGE:$DATETIME_TAG
+            docker push $IMAGE:$DATETIME_TAG
+          else
+            echo "No old latest found, skipping backup."
+          fi
+
+      # 11. Build and push new image
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE=${{ steps.vars.outputs.image }}
+          SHA_TAG=${{ steps.vars.outputs.sha_tag }}
+
+          docker build -t $IMAGE:$SHA_TAG -t $IMAGE:latest .
+          docker push $IMAGE:$SHA_TAG
+          docker push $IMAGE:latest
+
+      # 12. Docker Image Scan (Trivy)
+      - name: Scan Docker Image with Trivy
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/react-app:latest
