@@ -2,9 +2,9 @@ name: CI Pipeline - React App
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "feature-Implement-CI-pipeline" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "feature-Implement-CI-pipeline" ]
 
 jobs:
   build:
