@@ -37,7 +37,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      # 6. Security Scan (npm audit or Snyk)
+      # 6. Security ScanNING (npm audit or Snyk)
       - name: Run npm audit
         run: npm audit --audit-level=moderate || echo "npm audit failed or not supported, skipping."
 
