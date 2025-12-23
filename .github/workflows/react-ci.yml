@@ -56,24 +56,24 @@ jobs:
       - name: Set image tags
         id: vars
         run: |
-          DATETIME_TAG=$(date +'%Y%m%d%H%M%S')   # e.g. 202508281635
-          SHA_TAG=${GITHUB_SHA::7}               # e.g. abc1234
+          BUILD_TAG=${GITHUB_RUN_NUMBER}      # e.g. 42
+          SHA_TAG=${GITHUB_SHA::7}            # optional, e.g. abc1234
           IMAGE=${{ secrets.DOCKER_USERNAME }}/react-app
-          
-          echo "datetime_tag=$DATETIME_TAG" >> $GITHUB_OUTPUT
+      
+          echo "build_tag=$BUILD_TAG" >> $GITHUB_OUTPUT
           echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
-
+      
       # 10. Backup old latest (if exists)
       - name: Backup old latest
         run: |
           IMAGE=${{ steps.vars.outputs.image }}
-          DATETIME_TAG=${{ steps.vars.outputs.datetime_tag }}
-          
+          BUILD_TAG=${{ steps.vars.outputs.build_tag }}
+      
           if docker pull $IMAGE:latest; then
-            echo "Backing up old latest as $DATETIME_TAG"
-            docker tag $IMAGE:latest $IMAGE:$DATETIME_TAG
-            docker push $IMAGE:$DATETIME_TAG
+            echo "Backing up old latest as build-$BUILD_TAG"
+            docker tag $IMAGE:latest $IMAGE:build-$BUILD_TAG
+            docker push $IMAGE:build-$BUILD_TAG
           else
             echo "No old latest found, skipping backup."
           fi
