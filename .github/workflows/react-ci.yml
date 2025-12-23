@@ -53,39 +53,20 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       # 9. Set image tags
-      - name: Set image tags
+      - name: Set image variables
         id: vars
         run: |
-          BUILD_TAG=${GITHUB_RUN_NUMBER}      # e.g. 42
-          SHA_TAG=${GITHUB_SHA::7}            # optional, e.g. abc1234
-          IMAGE=${{ secrets.DOCKER_USERNAME }}/react-app
+          echo "image=${{ secrets.DOCKER_USERNAME }}/react-app" >> $GITHUB_OUTPUT
+          echo "build_tag=${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
       
-          echo "build_tag=$BUILD_TAG" >> $GITHUB_OUTPUT
-          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-      
-      # 10. Backup old latest (if exists)
-      - name: Backup old latest
+      # Build and push Docker image
+      - name: Build and Push Docker Image
         run: |
           IMAGE=${{ steps.vars.outputs.image }}
           BUILD_TAG=${{ steps.vars.outputs.build_tag }}
       
-          if docker pull $IMAGE:latest; then
-            echo "Backing up old latest as build-$BUILD_TAG"
-            docker tag $IMAGE:latest $IMAGE:build-$BUILD_TAG
-            docker push $IMAGE:build-$BUILD_TAG
-          else
-            echo "No old latest found, skipping backup."
-          fi
-
-      # 11. Build and push new image
-      - name: Build and Push Docker Image
-        run: |
-          IMAGE=${{ steps.vars.outputs.image }}
-          SHA_TAG=${{ steps.vars.outputs.sha_tag }}
-          
-          docker build -t $IMAGE:${{ github.run_number }} -t $IMAGE:latest .
-          docker push $IMAGE:${{ github.run_number }}
+          docker build -t $IMAGE:$BUILD_TAG -t $IMAGE:latest .
+          docker push $IMAGE:$BUILD_TAG
           docker push $IMAGE:latest
 
       # # 12. Docker Image Scan (Trivy)
