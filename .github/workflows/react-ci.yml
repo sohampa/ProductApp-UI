@@ -65,9 +65,9 @@ jobs:
           IMAGE=${{ steps.vars.outputs.image }}
           BUILD_TAG=${{ steps.vars.outputs.build_tag }}
       
-          docker build -t $IMAGE:$BUILD_TAG -t $IMAGE:latest .
+          docker build -t $IMAGE:$BUILD_TAG .
           docker push $IMAGE:$BUILD_TAG
-          docker push $IMAGE:latest
+          # docker push $IMAGE:latest
 
       # # 12. Docker Image Scan (Trivy)
       # - name: Scan Docker Image with Trivy
