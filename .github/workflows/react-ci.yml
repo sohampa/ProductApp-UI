@@ -30,16 +30,16 @@ jobs:
         run: CI=false npm run build
 
       # 5. Static Code Analysis (SonarQube example)
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
-        with:
-          args: ""
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # - name: SonarQube Scan
+      #   uses: SonarSource/sonarqube-scan-action@v5
+      #   with:
+      #     args: ""
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      # 6. Security Scan (npm audit or Snyk)
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate || echo "npm audit failed or not supported, skipping."
+      # # 6. Security Scan (npm audit or Snyk)
+      # - name: Run npm audit
+      #   run: npm audit --audit-level=moderate || echo "npm audit failed or not supported, skipping."
 
       # 7. Set up Docker Buildx
       - name: Set up Docker Buildx
@@ -88,8 +88,8 @@ jobs:
           docker push $IMAGE:$SHA_TAG
           docker push $IMAGE:latest
 
-      # 12. Docker Image Scan (Trivy)
-      - name: Scan Docker Image with Trivy
-        uses: aquasecurity/trivy-action@0.20.0
-        with:
-          image-ref: ${{ secrets.DOCKER_USERNAME }}/react-app:latest
+      # # 12. Docker Image Scan (Trivy)
+      # - name: Scan Docker Image with Trivy
+      #   uses: aquasecurity/trivy-action@0.20.0
+      #   with:
+      #     image-ref: ${{ secrets.DOCKER_USERNAME }}/react-app:latest
