@@ -83,9 +83,9 @@ jobs:
         run: |
           IMAGE=${{ steps.vars.outputs.image }}
           SHA_TAG=${{ steps.vars.outputs.sha_tag }}
-
-          docker build -t $IMAGE:$SHA_TAG -t $IMAGE:latest .
-          docker push $IMAGE:$SHA_TAG
+          
+          docker build -t $IMAGE:${{ github.run_number }} -t $IMAGE:latest .
+          docker push $IMAGE:${{ github.run_number }}
           docker push $IMAGE:latest
 
       # # 12. Docker Image Scan (Trivy)
